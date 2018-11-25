@@ -1,8 +1,11 @@
 def initialize(context):
-    context.appl=sid(24)
-    
+    set_benchmark(sid(24819))
+    context.appl=sid(24819)
+    schedule_function(ma_crossover_handling,
+                      date_rules.every_day(),
+                     time_rules.market_open(hours=1))
 
-def handle_data(context,data):
+def ma_crossover_handling(context,data):
     hist=data.history(context.appl,'price',50,'1d')
     log.info(hist.head())
     sma_50=hist.mean()
