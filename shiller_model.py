@@ -64,9 +64,13 @@ data['mean']=data['MULTPL/SHILLER_PE_RATIO_MONTH - Value']-data['MULTPL/SHILLER_
 transform(data[['mean','MULTPL/SHILLER_PE_RATIO_MONTH - Value']],data['per_var'])
 
 # Me parece que debe ser 0.60 porque es el acumulado de 5 años
-data['id'] = data['per_var'].apply(lambda x: 1 if x > 0.60 else 0)
+data['id'] = data['per_var'].apply(lambda x: 1 if x > 0.60 else (0 if x<0 else 2))
 
 data=data.rename(columns={"MULTPL/SP500_REAL_PRICE_MONTH - Value": "shiller_ratio"})
+
+pre_data=data.copy()
+
+data = data[data['id']!= 2 ]
 
 ''' Train Test'''
 
@@ -159,15 +163,19 @@ print(accuracy)
 
 ''' Segmentando '''
 
+pre_pred=res.predict(pre_data)
+
+pre_data['pred']=pre_pred
+
 col_names = {'count_nonzero': 'tasamalos', 'size': 'obs'}
 
-test['bucket'] = pd.qcut(test['pred'], 20 ,\
+pre_data['bucket'] = pd.qcut(pre_data['pred'], 20 ,\
          duplicates='drop',retbins=True)[0]
 
-seg=test.groupby('bucket')['id']\
+seg=pre_data.groupby('bucket')['id']\
 .agg([np.mean, np.count_nonzero, np.size]).rename(columns=col_names)
 
-seg2=test.groupby('bucket')['per_var']\
+seg2=pre_data.groupby('bucket')['per_var']\
 .agg([np.mean,np.var])
 
 seg2.columns=['ren_pro','var_pro']
@@ -176,8 +184,7 @@ seg3=seg.join(seg2[['ren_pro','var_pro']])
 
 seg3['inverse_dispersion_index']=seg3['ren_pro']/seg3['var_pro']
 
-
-print(seg)
+print(seg3)
 
 ''' Prediction '''
 
