@@ -146,6 +146,7 @@ def plot_confusion_matrix(df_confusion, title='Confusion matrix', cmap=plt.cm.gr
 
 from sklearn.metrics import confusion_matrix
 
+test['pred']=y_pred
 test['threshold']=y_pred
 test['threshold']=test['threshold'].apply(lambda x: 1 if x > 0.50 else 0)
 
@@ -155,5 +156,37 @@ plot_confusion_matrix(confusion)
 
 accuracy=(confusion.iloc[0,0]+confusion.iloc[1,1])/len(test)
 print(accuracy)
+
+''' Segmentando '''
+
+col_names = {'count_nonzero': 'tasamalos', 'size': 'obs'}
+
+test['bucket'] = pd.qcut(test['pred'], 20 ,\
+         duplicates='drop',retbins=True)[0]
+
+seg=test.groupby('bucket')['id']\
+.agg([np.mean, np.count_nonzero, np.size]).rename(columns=col_names)
+
+seg2=test.groupby('bucket')['per_var']\
+.agg([np.mean,np.var])
+
+seg2.columns=['ren_pro','var_pro']
+
+seg3=seg.join(seg2[['ren_pro','var_pro']])
+
+seg3['inverse_dispersion_index']=seg3['ren_pro']/seg3['var_pro']
+
+
+print(seg)
+
+''' Prediction '''
+
+mean=mydata2['MULTPL/SHILLER_PE_RATIO_MONTH - Value'][-1]-data['MULTPL/SHILLER_PE_RATIO_MONTH - Value'].mean()
+mean= np.array([1,mean])
+mean=mean.reshape(1,2)
+pred=pd.DataFrame(mean)
+pred.columns=['con','mean']
+
+res.predict(pred)
 
 
