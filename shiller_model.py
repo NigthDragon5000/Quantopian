@@ -112,8 +112,14 @@ train_upsampled.id.value_counts()
 
 ''' Modelo '''
 
-#import statsmodels.api as sm
+import statsmodels.api as sm
 import statsmodels.formula.api as smf
+from sklearn.ensemble import RandomForestClassifier
+
+train_upsampled=sm.add_constant(train_upsampled)
+test=sm.add_constant(test)
+
+#Logistic Regression
 
 mod = smf.logit(formula='id ~  mean  ', data=train_upsampled)
 res = mod.fit()
@@ -121,6 +127,17 @@ res.summary()
 
 y_pred=res.predict(test)
 
+# Random Forest
+
+clf = RandomForestClassifier(n_estimators=100, max_depth=2,
+                             random_state=0)
+
+
+clf.fit(train_upsampled[['const','mean']], train_upsampled['id'])  
+
+#y_pred=clf.predict_proba(test[['const','mean']])
+
+#y_pred=y_pred[:,1]
 
 ''' ROC '''
 
@@ -165,11 +182,14 @@ print(accuracy)
 
 pre_pred=res.predict(pre_data)
 
+#pre_data=sm.add_constant(pre_data)
+#pre_pred=clf.predict_proba(pre_data[['const','mean']])[:,1]
+
 pre_data['pred']=pre_pred
 
 col_names = {'count_nonzero': 'tasamalos', 'size': 'obs'}
 
-pre_data['bucket'] = pd.qcut(pre_data['pred'], 20 ,\
+pre_data['bucket'] = pd.qcut(pre_data['pred'], 30 ,\
          duplicates='drop',retbins=True)[0]
 
 seg=pre_data.groupby('bucket')['id']\
@@ -192,8 +212,9 @@ mean=mydata2['MULTPL/SHILLER_PE_RATIO_MONTH - Value'][-1]-data['MULTPL/SHILLER_P
 mean= np.array([1,mean])
 mean=mean.reshape(1,2)
 pred=pd.DataFrame(mean)
-pred.columns=['con','mean']
-
+pred.columns=['const','mean']
 res.predict(pred)
 
+pred=sm.add_constant(pred)
+pre_pred=clf.predict_proba(pred[['const','mean']])[:,1]
 
