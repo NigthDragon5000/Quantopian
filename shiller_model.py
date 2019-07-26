@@ -9,16 +9,43 @@ Created on Mon Jul 22 09:54:38 2019
 
 import quandl
 import matplotlib.pyplot as plt
+import numpy as np
 #mydata = quandl.get("FRED/GDP")
 #mydata=quandl.get()
 #mydata.plot()
 
 ''' Extrayendo'''
 
-mydata2=quandl.get(["MULTPL/SHILLER_PE_RATIO_MONTH","MULTPL/SP500_REAL_PRICE_MONTH"])
+mydata=quandl.get(["MULTPL/SHILLER_PE_RATIO_MONTH"\
+                    ,"MULTPL/SP500_REAL_PRICE_MONTH",\
+                    "MULTPL/SP500_DIV_YIELD_MONTH"],\
+                     authtoken="jXzqHEmopssr9P9jayeC")
+df=mydata.copy()
+
+df=df.reset_index()
+
+df['YearMonth'] = df['Date'].map(lambda x: 100*x.year + x.month)
+
+df=df.groupby(['YearMonth']).sum()
+
+df=df[['MULTPL/SHILLER_PE_RATIO_MONTH - Value',
+       'MULTPL/SP500_REAL_PRICE_MONTH - Value',
+       'MULTPL/SP500_DIV_YIELD_MONTH - Value']].replace({0:np.nan})
+
+# llenar NA con un promedio movil
+
+mydata2=df.copy()
 
 ''' Grafica'''
-ax = mydata2.plot(secondary_y='MULTPL/SP500_REAL_PRICE_MONTH - Value')
+
+ax = mydata2[['MULTPL/SHILLER_PE_RATIO_MONTH - Value',
+       'MULTPL/SP500_REAL_PRICE_MONTH - Value']].plot(secondary_y='MULTPL/SP500_REAL_PRICE_MONTH - Value')
+ax2 = ax.twinx()
+ax2.set_yscale('log')
+plt.show()
+
+ax = mydata2[['MULTPL/SHILLER_PE_RATIO_MONTH - Value',
+       'MULTPL/SP500_DIV_YIELD_MONTH - Value']].plot(secondary_y='MULTPL/SP500_REAL_PRICE_MONTH - Value')
 ax2 = ax.twinx()
 ax2.set_yscale('log')
 plt.show()
@@ -48,31 +75,35 @@ reg.predict(np.array([[16.64]]))
 
 ''' Lag y otros'''
 
-def transform(X,y):
-    #X=X.values.reshape(-1,1)
-    #y=y.values.reshape(-1,1)
-    reg = LinearRegression().fit(X, y)
-    return reg.score(X, y)
+#def transform(X,y):
+#    #X=X.values.reshape(-1,1)
+#    #y=y.values.reshape(-1,1)
+#    reg = LinearRegression().fit(X, y)
+#    return reg.score(X, y)
 
 
 data=mydata2.copy()
 data['spf']=data['MULTPL/SP500_REAL_PRICE_MONTH - Value'].shift(periods=-60) #Want lead
 data['per_var']=data['spf']/data['MULTPL/SP500_REAL_PRICE_MONTH - Value']-1 
-data=data.dropna()
-data['mean']=data['MULTPL/SHILLER_PE_RATIO_MONTH - Value']-data['MULTPL/SHILLER_PE_RATIO_MONTH - Value'].mean()
+data=data.rename(columns={"MULTPL/SHILLER_PE_RATIO_MONTH - Value": "shiller_ratio"})
+data['shiller_ma']=data['shiller_ratio'].rolling(12*100).mean()
+data['div_ma']=data['MULTPL/SP500_DIV_YIELD_MONTH - Value'].rolling(12*100,min_periods=12*95).mean()
+data['mean']=data['shiller_ratio']-data['shiller_ma']
+data=data.rename(columns={"MULTPL/SP500_DIV_YIELD_MONTH - Value": "div_yield"})
+data['mean_div']=data['div_yield']-data['div_ma']
+#transform(data[['mean','MULTPL/SHILLER_PE_RATIO_MONTH - Value']],data['per_var'])
 
-transform(data[['mean','MULTPL/SHILLER_PE_RATIO_MONTH - Value']],data['per_var'])
 
 # Me parece que debe ser 0.60 porque es el acumulado de 5 años
 data['id'] = data['per_var'].apply(lambda x: 1 if x > 0.60 else (0 if x<0 else 2))
-
-data=data.rename(columns={"MULTPL/SP500_REAL_PRICE_MONTH - Value": "shiller_ratio"})
-
+#pre_data=data.copy()
 pre_data=data.copy()
-
 data = data[data['id']!= 2 ]
+data=data.dropna()
+vista=pre_data.head()
 
 ''' Train Test'''
+
 
 from sklearn.model_selection import train_test_split
 train,test=train_test_split(data,test_size=0.3,random_state=123)
@@ -88,8 +119,8 @@ import pandas as pd
 train['id'].value_counts()
 
 # Separate majority and minority classes
-train_majority = train[train.id==0]
-train_minority = train[train.id==1]
+train_majority = train[train.id==1]
+train_minority = train[train.id==0]
 
 #len(df_majority)
  
@@ -121,7 +152,7 @@ test=sm.add_constant(test)
 
 #Logistic Regression
 
-mod = smf.logit(formula='id ~  mean  ', data=train_upsampled)
+mod = smf.logit(formula='id ~  mean + mean_div  ', data=train_upsampled)
 res = mod.fit()
 res.summary()
 
@@ -189,7 +220,7 @@ pre_data['pred']=pre_pred
 
 col_names = {'count_nonzero': 'tasamalos', 'size': 'obs'}
 
-pre_data['bucket'] = pd.qcut(pre_data['pred'], 30 ,\
+pre_data['bucket'] = pd.qcut(pre_data['pred'], 20 ,\
          duplicates='drop',retbins=True)[0]
 
 seg=pre_data.groupby('bucket')['id']\
@@ -208,13 +239,30 @@ print(seg3)
 
 ''' Prediction '''
 
-mean=mydata2['MULTPL/SHILLER_PE_RATIO_MONTH - Value'][-1]-data['MULTPL/SHILLER_PE_RATIO_MONTH - Value'].mean()
+mydata3=mydata2.copy()
+mydata3['ma']=mydata3['MULTPL/SHILLER_PE_RATIO_MONTH - Value'].rolling(12*100).mean()
+mydata3['mean']= mydata3['MULTPL/SHILLER_PE_RATIO_MONTH - Value']-mydata3['ma']
+mean=mydata3['mean'][-1]
 mean= np.array([1,mean])
 mean=mean.reshape(1,2)
 pred=pd.DataFrame(mean)
 pred.columns=['const','mean']
 res.predict(pred)
 
-pred=sm.add_constant(pred)
-pre_pred=clf.predict_proba(pred[['const','mean']])[:,1]
+
+''' Graficos con plotly'''
+
+import plotly.plotly as py
+import plotly.graph_objs as go
+from plotly.offline import iplot
+
+import cufflinks
+
+mydata2['mean'].plot(kind='hist')
+
+#pred=sm.add_constant(pred)
+#pre_pred=clf.predict_proba(pred[['const','mean']])[:,1]
+
+
+
 
