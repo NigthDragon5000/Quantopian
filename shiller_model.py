@@ -279,6 +279,10 @@ mydata3['pd']=res.predict(mydata3)
 
 print(res.summary())
 
+''' Correlacion '''
+#Fuerte Corrleacion -- PCA?
+train_upsampled[['mean','mean_div']].corr()
+
 
 ''' Graficos con plotly'''
 #
@@ -292,4 +296,8 @@ print(res.summary())
 #
 ##pred=sm.add_constant(pred)
 ##pre_pred=clf.predict_proba(pred[['const','mean']])[:,1]
+
+
+
+
 
