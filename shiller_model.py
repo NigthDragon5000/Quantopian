@@ -50,6 +50,17 @@ ax2 = ax.twinx()
 ax2.set_yscale('log')
 plt.show()
 
+mydata2['MULTPL/SHILLER_PE_RATIO_MONTH - Value'].hist()
+mydata2['MULTPL/SP500_DIV_YIELD_MONTH - Value'].hist()
+
+#from plotly.offline import download_plotlyjs, init_notebook_mode, plot, iplot
+
+#init_notebook_mode()
+
+#iplot (
+#mydata2['MULTPL/SHILLER_PE_RATIO_MONTH - Value'].values.tolist(),
+#)
+#mydata2['MULTPL/SHILLER_PE_RATIO_MONTH - Value'].iplot()
 
 ''' Pruebas'''
 
@@ -220,7 +231,7 @@ pre_data['pred']=pre_pred
 
 col_names = {'count_nonzero': 'tasamalos', 'size': 'obs'}
 
-pre_data['bucket'] = pd.qcut(pre_data['pred'], 20 ,\
+pre_data['bucket'] = pd.qcut(pre_data['pred'], 12 ,\
          duplicates='drop',retbins=True)[0]
 
 seg=pre_data.groupby('bucket')['id']\
@@ -229,11 +240,26 @@ seg=pre_data.groupby('bucket')['id']\
 seg2=pre_data.groupby('bucket')['per_var']\
 .agg([np.mean,np.var])
 
+
+def q1(x):
+    return x.quantile(0.01)
+
+def q2(x):
+    return x.quantile(0.99)
+
+f = {'number': [q1,q2]}
+
+segg=pre_data.groupby('bucket')['per_var'].agg(f)
+
 seg2.columns=['ren_pro','var_pro']
+segg.columns=['VaR','-VaR']
 
 seg3=seg.join(seg2[['ren_pro','var_pro']])
+seg3=seg3.join(segg)
 
 seg3['inverse_dispersion_index']=seg3['ren_pro']/seg3['var_pro']
+
+seg3['R/Var']=seg3['ren_pro']/seg3['VaR']
 
 print(seg3)
 
@@ -262,7 +288,4 @@ mydata2['mean'].plot(kind='hist')
 
 #pred=sm.add_constant(pred)
 #pre_pred=clf.predict_proba(pred[['const','mean']])[:,1]
-
-
-
 
