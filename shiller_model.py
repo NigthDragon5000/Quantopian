@@ -16,10 +16,10 @@ import numpy as np
 
 ''' Extrayendo'''
 
-mydata=quandl.get(["MULTPL/SHILLER_PE_RATIO_MONTH"\
-                    ,"MULTPL/SP500_REAL_PRICE_MONTH",\
-                    "MULTPL/SP500_DIV_YIELD_MONTH"],\
-                     authtoken="jXzqHEmopssr9P9jayeC")
+#mydata=quandl.get(["MULTPL/SHILLER_PE_RATIO_MONTH"\
+#                    ,"MULTPL/SP500_REAL_PRICE_MONTH",\
+#                    "MULTPL/SP500_DIV_YIELD_MONTH"],\
+#                     authtoken="jXzqHEmopssr9P9jayeC")
 df=mydata.copy()
 
 df=df.reset_index()
@@ -97,8 +97,8 @@ data=mydata2.copy()
 data['spf']=data['MULTPL/SP500_REAL_PRICE_MONTH - Value'].shift(periods=-60) #Want lead
 data['per_var']=data['spf']/data['MULTPL/SP500_REAL_PRICE_MONTH - Value']-1 
 data=data.rename(columns={"MULTPL/SHILLER_PE_RATIO_MONTH - Value": "shiller_ratio"})
-data['shiller_ma']=data['shiller_ratio'].rolling(12*100).mean()
-data['div_ma']=data['MULTPL/SP500_DIV_YIELD_MONTH - Value'].rolling(12*100,min_periods=12*95).mean()
+data['shiller_ma']=data['shiller_ratio'].rolling(12*50).mean()
+data['div_ma']=data['MULTPL/SP500_DIV_YIELD_MONTH - Value'].rolling(12*50,min_periods=12*45).mean()
 data['mean']=data['shiller_ratio']-data['shiller_ma']
 data=data.rename(columns={"MULTPL/SP500_DIV_YIELD_MONTH - Value": "div_yield"})
 data['mean_div']=data['div_yield']-data['div_ma']
@@ -163,7 +163,7 @@ test=sm.add_constant(test)
 
 #Logistic Regression
 
-mod = smf.logit(formula='id ~  mean + mean_div  ', data=train_upsampled)
+mod = smf.logit(formula='id ~  mean +  mean_div  ', data=train_upsampled)
 res = mod.fit()
 res.summary()
 
@@ -266,26 +266,30 @@ print(seg3)
 ''' Prediction '''
 
 mydata3=mydata2.copy()
-mydata3['ma']=mydata3['MULTPL/SHILLER_PE_RATIO_MONTH - Value'].rolling(12*100).mean()
+mydata3['ma']=mydata3['MULTPL/SHILLER_PE_RATIO_MONTH - Value'].rolling(12*50).mean()
 mydata3['mean']= mydata3['MULTPL/SHILLER_PE_RATIO_MONTH - Value']-mydata3['ma']
-mean=mydata3['mean'][-1]
-mean= np.array([1,mean])
-mean=mean.reshape(1,2)
-pred=pd.DataFrame(mean)
-pred.columns=['const','mean']
-res.predict(pred)
+mydata3['ma_div']=mydata3['MULTPL/SP500_DIV_YIELD_MONTH - Value'].rolling(12*50,min_periods=12*45).mean()
+mydata3['mean_div']= mydata3['MULTPL/SP500_DIV_YIELD_MONTH - Value']-mydata3['ma_div']
+#mean=mydata3[['mean','mean_div']].iloc[-1,:]
+#mean= np.array([1,mean])
+#mean=mean.reshape(1,2)
+#pred=pd.DataFrame(mean)
+#pred.columns=['const','mean']
+mydata3['pd']=res.predict(mydata3)
+
+print(res.summary())
 
 
 ''' Graficos con plotly'''
-
-import plotly.plotly as py
-import plotly.graph_objs as go
-from plotly.offline import iplot
-
-import cufflinks
-
-mydata2['mean'].plot(kind='hist')
-
-#pred=sm.add_constant(pred)
-#pre_pred=clf.predict_proba(pred[['const','mean']])[:,1]
+#
+#import plotly.plotly as py
+#import plotly.graph_objs as go
+#from plotly.offline import iplot
+#
+#import cufflinks
+#
+#mydata2['mean'].plot(kind='hist')
+#
+##pred=sm.add_constant(pred)
+##pre_pred=clf.predict_proba(pred[['const','mean']])[:,1]
 
